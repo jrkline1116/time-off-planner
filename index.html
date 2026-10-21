@@ -200,6 +200,11 @@ tr.short td.ptob,tr.short td.pslb{text-decoration:underline}
     </div>
 
     <div class="results">
+      <section class="card empty" id="emptyState" hidden>
+        <h2>Enter your paycheck to see your projection</h2>
+        <p class="hint" style="margin:0">Fill in section 2 with a paycheck date, your PTO accrued per pay period, and your PTO balance on that check. Your paycheck-by-paycheck balances will show up here.</p>
+      </section>
+      <div id="resultsBody">
       <div class="tiles" id="tiles"></div>
       <ul class="alerts" id="alerts"></ul>
 
@@ -210,6 +215,7 @@ tr.short td.ptob,tr.short td.pslb{text-decoration:underline}
       </section>
 
       <div class="tablewrap"><table id="ledger"></table></div>
+      </div>
 
       <div class="rules noprint">
         <p><b>How hours post.</b> Each paycheck adds that pay period's PTO and PSL. Time off is charged on the paycheck for the pay period it falls in, and that period's new hours can cover it. Balances can't go negative. Hours that don't fit show as <b>short</b> (unpaid).</p>
@@ -459,6 +465,10 @@ function calc(){
 // ---------- render ----------
 function render(){
   const M=lastModel;
+  const ready=document.getElementById("rate").value!==""&&document.getElementById("ptoBal").value!=="";
+  document.getElementById("emptyState").hidden=ready;
+  document.getElementById("resultsBody").hidden=!ready;
+  if(!ready){document.getElementById("printhead").innerHTML="";return}
   const last=M.rows.filter(r=>r.type!=="year").slice(-1)[0];
   const tiles=[
     {k:"All time off at last check",v:f2(last.total),d:fmt(last.pay)+" · PTO "+f2(last.pto)},
