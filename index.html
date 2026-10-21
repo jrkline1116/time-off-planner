@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Time Off Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+html{color-scheme:light}
+body{margin:0}
+/* Layout: form column of numbered input groups on the left, live ledger on the right; stacks on phones. Print = one-page B&W summary. */
+:root{
+  --bg:#f5f7f8; --panel:#ffffff; --fg:#17212b; --muted:#5b6873; --line:#d5dde2; --soft:#eaf0f2;
+  --accent:#1f5f78; --accent-fg:#ffffff; --warn:#8a4b00; --warn-bg:#fff4e2; --bad:#9b1c1c; --bad-bg:#fdecec; --good:#1f6b43;
+  --display:"Archivo","Arial Narrow",Arial,sans-serif;
+  --body:"Source Sans 3","Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10171c; --panel:#172129; --fg:#e4eaee; --muted:#9aa8b2; --line:#2c3a44; --soft:#1d2a33;
+  --accent:#7cc0d8; --accent-fg:#0d1a20; --warn:#f2b866; --warn-bg:#33270f; --bad:#f19a9a; --bad-bg:#3a1a1a; --good:#7fd0a4; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10171c; --panel:#172129; --fg:#e4eaee; --muted:#9aa8b2; --line:#2c3a44; --soft:#1d2a33;
+  --accent:#7cc0d8; --accent-fg:#0d1a20; --warn:#f2b866; --warn-bg:#33270f; --bad:#f19a9a; --bad-bg:#3a1a1a; --good:#7fd0a4; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1320px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:2px solid var(--fg);padding-bottom:10px;margin-bottom:18px}
+h1{font-family:var(--display);font-stretch:85%;font-weight:800;font-size:clamp(26px,4vw,36px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;max-width:70ch}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:6px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button.x{padding:4px 9px;font-weight:700}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+section.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.card h2{font-family:var(--display);font-stretch:90%;font-size:17px;font-weight:700;margin:0 0 2px;display:flex;gap:8px;align-items:baseline}
+.card h2 .n{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:600}
+.hint{color:var(--muted);font-size:13px;margin:0 0 10px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.fields .full{grid-column:1/-1}
+label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+input,select{font:inherit;font-size:14.5px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:6px 8px;width:100%;min-width:0}
+input[type=number]{font-family:var(--mono);font-size:14px}
+.calc{font-family:var(--mono);font-size:13px;background:var(--soft);border-radius:5px;padding:7px 9px;color:var(--fg)}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg label{flex:1;flex-direction:row;align-items:center;justify-content:center;gap:6px;padding:7px;cursor:pointer;color:var(--fg);font-size:14px}
+.seg input{width:auto}
+.rows{display:flex;flex-direction:column;gap:8px}
+.req{display:grid;grid-template-columns:minmax(0,1.5fr) 68px minmax(0,1fr) auto;gap:6px;align-items:end}
+.req>button{margin-bottom:3px}
+.req .note{grid-column:1/-1}
+.req + .req{border-top:1px dashed var(--line);padding-top:8px}
+.fl{display:grid;grid-template-columns:64px minmax(0,1fr) minmax(0,1fr) auto;gap:6px;align-items:end}
+.add{margin-top:10px}
+.auto{font-size:13px;color:var(--muted);margin-top:8px}
+/* results */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.tile .k{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.tile .v{font-family:var(--mono);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.tile .d{font-size:12.5px;color:var(--muted)}
+.tile.bad{border-color:var(--bad);border-width:2px}
+.tile.bad .v{color:var(--bad)}
+.alerts{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:6px}
+.alerts li{border:1px solid var(--line);border-left-width:5px;border-radius:6px;padding:7px 10px;background:var(--panel);font-size:14px}
+.alerts li b{font-family:var(--mono);font-size:12px;margin-right:6px}
+.alerts li.bad{border-left-color:var(--bad);background:var(--bad-bg)}
+.alerts li.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+.alerts li.ok{border-left-color:var(--good)}
+.check{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:6px}
+.check label{width:170px}
+.checkout{font-size:14px}
+.checkout .calc{display:inline-block;margin:2px 4px 2px 0}
+.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--soft);position:sticky;top:0}
+th.grp{text-align:center;border-left:1px solid var(--line)}
+td.l,th.l{text-align:left}
+td.num{font-family:var(--mono);font-size:13px}
+td.bl,th.bl{border-left:1px solid var(--line)}
+td.bal{font-weight:600}
+td.tot,th.tot{background:var(--soft);font-weight:700;border-left:2px solid var(--fg);border-right:2px solid var(--fg)}
+td.tot{font-size:13.5px}
+td.notes{text-align:left;white-space:normal;min-width:170px;font-size:12.5px;color:var(--muted)}
+td.notes .flag{color:var(--bad);font-weight:700}
+td.notes .w{color:var(--warn);font-weight:600}
+tr.yr td{background:var(--soft);font-family:var(--display);font-stretch:90%;font-weight:700;text-align:left;font-size:14px;color:var(--fg)}
+tr.yr td span{font-family:var(--body);font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
+tr.ye td{border-bottom:2px solid var(--fg)}
+tr.short td.ptob,tr.short td.pslb{text-decoration:underline}
+.dash{color:var(--muted)}
+.rules{font-size:13px;color:var(--muted);columns:2 300px;column-gap:28px;margin-top:14px}
+.rules p{margin:0 0 6px;break-inside:avoid}
+.printhead{display:none}
+.copied{font-size:13px;color:var(--good);align-self:center}
+@media (prefers-reduced-motion:no-preference){button{transition:border-color .15s}}
+
+@media print{
+  @page{size:letter portrait;margin:.3in .35in}
+  :root{--bg:#fff;--panel:#fff;--fg:#000;--muted:#333;--line:#999;--soft:#e8e8e8;--bad:#000;--warn:#000;--bad-bg:#fff;--warn-bg:#fff;--good:#000;color-scheme:light}
+  body{font-size:8.5pt;line-height:1.2}
+  .wrap{padding:0;max-width:none}
+  .grid{display:block}
+  .noprint,.inputs,header.top .btns,.check,.checkout,.rules{display:none!important}
+  .printhead{display:block;margin-bottom:6px}
+  .printhead h1{font-size:16pt}
+  .printhead .meta{display:grid;grid-template-columns:repeat(4,1fr);gap:2px 12px;font-size:8.5pt;margin-top:4px}
+  .printhead .reqs{font-size:8.5pt;margin-top:4px}
+  header.top{display:none}
+  .tiles{grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:6px}
+  .tile{padding:4px 6px;border-radius:0}
+  .tile .v{font-size:12pt}
+  .tile .k,.tile .d{font-size:7pt}
+  .tile.bad{border:2px solid #000}
+  .alerts{gap:2px;margin-bottom:6px}
+  .alerts li{padding:1px 6px;font-size:7.5pt;border-radius:0}
+  .alerts li.bad{border-left:5px solid #000;font-weight:700}
+  .alerts li.warn{border-left:5px double #000}
+  .tablewrap{border:none;overflow:visible}
+  table{font-size:7pt;line-height:1.15}
+  th,td{padding:.5px 3px}
+  td.notes{width:38%}
+  th{position:static}
+  td.num{font-size:7pt}
+  td.notes{font-size:6.5pt;min-width:0;white-space:normal}
+  tr.yr td{font-size:8pt}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Time Off Planner</h1>
+      <p class="sub">Project PTO, PSL and floating holiday hours paycheck by paycheck, using the Spooner payroll calendar (27 pay periods in 2026, 26 in 2027). Nothing you enter is saved.</p>
+    </div>
+    <div class="btns">
+      <button id="copyBtn" type="button">Copy summary</button>
+      <button id="printBtn" type="button" class="primary" hidden>Print one-page summary</button>
+      <span id="copied" class="copied" hidden>Copied</span>
+    </div>
+  </header>
+
+  <div class="printhead" id="printhead"></div>
+
+  <div class="grid">
+    <div class="inputs">
+      <section class="card">
+        <h2><span class="n">1</span>Who and what type</h2>
+        <p class="hint">Example numbers are filled in. Replace them with yours, or <button type="button" id="clearBtn" class="x" style="padding:1px 7px;font-size:12px">clear everything</button></p>
+        <div class="fields">
+          <label class="full">Name<input id="name" type="text" autocomplete="off"></label>
+          <div class="full seg" role="radiogroup" aria-label="Pay type">
+            <label><input type="radio" name="etype" id="etSal" value="salaried" checked> Salaried</label>
+            <label><input type="radio" name="etype" id="etHr" value="hourly"> Hourly</label>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="n">2</span>Starting point: one paycheck</h2>
+        <p class="hint">Pick a paycheck you have a stub for. Enter the balances shown <em>after</em> that check posted.</p>
+        <div class="fields">
+          <label class="full">Paycheck date<select id="anchor"></select></label>
+          <label>PTO accrued per pay period<input id="rate" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label>PTO balance on that check<input id="ptoBal" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <div class="full calc" id="rateCalc"></div>
+          <label>PSL balance on that check<input id="pslBal" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label>PSL already used this calendar year<input id="pslUsed" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label>Hours worked per pay period<input id="hrsWorked" type="number" step="1" min="0" inputmode="decimal"></label>
+          <label>Floating holiday hours you have<input id="fltBal" type="number" step="0.5" min="0" inputmode="decimal"></label>
+          <div class="full calc" id="pslCalc"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="n">3</span>Planned time off</h2>
+        <p class="hint">Add one row per day off: the date, the hours, and which bank pays for it. If you work more than 8 hours on a day that's a holiday, add the extra as a PTO row (makeup hours).</p>
+        <div class="rows" id="reqRows"></div>
+        <button type="button" class="add" id="addReq">+ Add time off</button>
+      </section>
+
+      <section class="card">
+        <h2><span class="n">4</span>Project through</h2>
+        <div class="fields"><label class="full">Last date to show<select id="through">
+          <option value="2026-12-31">End of 2026</option>
+          <option value="2027-06-30">June 2027</option>
+          <option value="2027-12-31" selected>End of 2027</option>
+          <option value="2028-12-31">End of 2028</option>
+        </select></label></div>
+      </section>
+    </div>
+
+    <div class="results">
+      <div class="tiles" id="tiles"></div>
+      <ul class="alerts" id="alerts"></ul>
+
+      <section class="card noprint">
+        <h2>What's available on a specific day?</h2>
+        <div class="check"><label>Date<input id="checkDate" type="date"></label></div>
+        <div class="checkout" id="checkOut"></div>
+      </section>
+
+      <div class="tablewrap"><table id="ledger"></table></div>
+
+      <div class="rules noprint">
+        <p><b>How hours post.</b> Each paycheck adds that pay period's PTO and PSL. Time off is charged on the paycheck for the pay period it falls in, and that period's new hours can cover it. Balances can't go negative. Hours that don't fit show as <b>short</b> (unpaid).</p>
+        <p><b>PTO rate by year.</b> For salaried staff, your annual PTO = your rate × pay periods in that year. In a year with a different number of paychecks, the rate per check changes so the annual total stays the same. For hourly staff, the rate per check stays the same.</p>
+        <p><b>PTO carryover.</b> After the last paycheck of the year, anything over one year's PTO is forfeited.</p>
+        <p><b>PSL.</b> You earn 1 hour per 30 worked, up to 80 a year. You can use 40 a year, and up to 40 roll over to the next year.</p>
+        <p><b>Floating holiday.</b> 8 hours are issued on each weekend holiday and expire 12 months later; future ones are added for you. The hours you enter now aren't given an expiration date, so check yours.</p>
+        <p><b>All time off.</b> PTO + the PSL you're still allowed to use that year (40-hour limit) + floating hours.</p>
+        <p><b>Not modeled yet.</b> FMLA or other leave (no PTO earned, no holiday pay), the 90-day orientation period, and 5- and 10-year accrual increases (enter the new rate when it changes).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+// ---------- date helpers (day numbers, UTC) ----------
+const DAY=86400000;
+const d2n=s=>{const[y,m,d]=s.split("-").map(Number);return Math.round(Date.UTC(y,m-1,d)/DAY)};
+const n2d=n=>new Date(n*DAY);
+const iso=n=>n2d(n).toISOString().slice(0,10);
+const dow=n=>((n%7)+11)%7; // 0=Sun (1970-01-01 is Thu)
+const yr=n=>n2d(n).getUTCFullYear();
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DOWN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const fmt=n=>{const d=n2d(n);return MON[d.getUTCMonth()]+" "+d.getUTCDate()+", "+d.getUTCFullYear()};
+const fmtS=n=>{const d=n2d(n);return MON[d.getUTCMonth()]+" "+d.getUTCDate()};
+const r2=x=>Math.round(x*100)/100;
+const f2=x=>(Math.round(x*100)/100).toFixed(2);
+const num=id=>{const v=parseFloat(document.getElementById(id).value);return isFinite(v)?v:0};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const todayN=(()=>{const t=new Date();return Math.round(Date.UTC(t.getFullYear(),t.getMonth(),t.getDate())/DAY)})();
+
+// ---------- Spooner holidays ----------
+function nthDow(y,m,wd,n){let d=d2n(`${y}-${String(m).padStart(2,"0")}-01`);while(dow(d)!==wd)d++;return d+7*(n-1)}
+function lastDow(y,m,wd){let d=d2n(`${y}-${String(m).padStart(2,"0")}-01`);d=nthDow(y,m,wd,1);while(yr(d+7)===y&&n2d(d+7).getUTCMonth()===m-1)d+=7;return d}
+function holidays(y){
+  return [
+    {n:d2n(`${y}-01-01`),name:"New Year's Day"},
+    {n:lastDow(y,5,1),name:"Memorial Day"},
+    {n:d2n(`${y}-07-04`),name:"Independence Day"},
+    {n:nthDow(y,9,1,1),name:"Labor Day"},
+    {n:nthDow(y,11,4,4),name:"Thanksgiving"},
+    {n:d2n(`${y}-12-25`),name:"Christmas"}
+  ].map(h=>({...h,weekend:dow(h.n)===0||dow(h.n)===6}));
+}
+const HOL=[];for(let y=2025;y<=2029;y++)HOL.push(...holidays(y));
+const closedSet=new Set(HOL.filter(h=>!h.weekend).map(h=>h.n));
+const holName=n=>(HOL.find(h=>h.n===n)||{}).name;
+
+// ---------- payroll calendar: biweekly Fridays; period ends the Saturday 6 days before ----------
+const PAYS=[];
+for(let f=d2n("2025-12-19");f<=d2n("2029-01-20");f+=14){
+  let pay=f;while(closedSet.has(pay)||dow(pay)===0||dow(pay)===6)pay--;
+  const end=f-6;PAYS.push({pay,end,start:end-13,year:yr(pay)});
+}
+const periodsIn=y=>PAYS.filter(p=>p.year===y).length;
+const lastPayOf=y=>{const a=PAYS.filter(p=>p.year===y);return a[a.length-1].pay};
+const periodFor=n=>PAYS.find(p=>n>=p.start&&n<=p.end);
+
+// ---------- state for repeatable rows ----------
+let reqs=[],uid=0;
+const anchorSel=document.getElementById("anchor");
+PAYS.filter(p=>p.year>=2026&&p.year<=2028).forEach(p=>{
+  const o=document.createElement("option");o.value=p.pay;
+  o.textContent=fmt(p.pay)+" ("+DOWN[dow(p.pay)]+") · period "+fmtS(p.start)+"–"+fmtS(p.end);
+  anchorSel.appendChild(o);
+});
+
+
+function reqRow(r){
+  const div=document.createElement("div");div.className="req";
+  div.innerHTML=`<label>Date<input type="date" id="rs${r.id}" value="${r.start}"></label>
+  <label>Hours<input type="number" step="0.25" min="0" id="rh${r.id}" value="${r.hrs}"></label>
+  <label>Pay from<select id="rb${r.id}"><option>PTO</option><option>PSL</option><option value="FLT">Floating</option></select></label>
+  <button type="button" class="x" aria-label="Remove">×</button>
+  <label class="note">Note<input type="text" id="rn${r.id}" value="${esc(r.note)}" autocomplete="off"></label>`;
+  div.querySelector(`#rb${r.id}`).value=r.bank;
+  div.querySelector("button").onclick=()=>{reqs=reqs.filter(x=>x.id!==r.id);div.remove();calc()};
+  [["rs","start"],["rh","hrs"],["rb","bank"],["rn","note"]].forEach(([p,k])=>{
+    const el=div.querySelector(`#${p}${r.id}`);el.oninput=el.onchange=e=>{r[k]=e.target.value;calc()};
+  });
+  document.getElementById("reqRows").appendChild(div);
+}
+function addReq(r){r={id:++uid,start:"",hrs:8,bank:"PTO",note:"",...r};reqs.push(r);reqRow(r)}
+
+document.getElementById("addReq").onclick=()=>addReq({});
+
+// ---------- sample ----------
+function loadSample(){
+  const set=(id,v)=>{document.getElementById(id).value=v};
+  set("name","Sample therapist (example numbers)");
+  document.getElementById("etSal").checked=true;
+  anchorSel.value=String(d2n("2026-10-09"));
+  set("rate","5.19");set("ptoBal","60.00");set("pslBal","40.00");set("pslUsed","0");set("hrsWorked","80");set("fltBal","8");
+  addReq({start:"2026-11-25",hrs:8,bank:"PTO",note:"Day before Thanksgiving"});
+  addReq({start:"2026-12-28",hrs:8,bank:"PTO",note:"Holiday break"});
+  addReq({start:"2026-12-29",hrs:8,bank:"PTO",note:"Holiday break"});
+  addReq({start:"2027-02-10",hrs:4,bank:"PSL",note:"Appointment"});
+  addReq({start:"2027-05-31",hrs:2,bank:"PTO",note:"Memorial Day makeup (10-hr day)"});
+  addReq({start:"2027-06-28",hrs:8,bank:"FLT",note:"Summer trip"});
+  addReq({start:"2027-06-29",hrs:8,bank:"PTO",note:"Summer trip"});
+  set("checkDate","2027-06-28");
+}
+document.getElementById("clearBtn").onclick=()=>{
+  ["name","rate","ptoBal","pslBal","pslUsed","fltBal","checkDate"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("hrsWorked").value="80";
+  reqs=[];document.getElementById("reqRows").innerHTML="";
+  addReq({});calc();
+};
+
+// ---------- engine ----------
+let lastModel=null;
+function calc(){
+  const anchorPay=+anchorSel.value;
+  const A=PAYS.find(p=>p.pay===anchorPay);
+  const aYear=A.year;
+  const hourly=document.getElementById("etHr").checked;
+  const rate=num("rate");
+  const aPeriods=periodsIn(aYear);
+  const annual=hourly?Math.round(rate*26):Math.round(rate*aPeriods);
+  const rateFor=y=>hourly||y===aYear?rate:r2(annual/periodsIn(y));
+  const hrsWorked=num("hrsWorked");
+  const pslRate=hrsWorked/30;
+  const through=d2n(document.getElementById("through").value);
+
+  // rate explanation
+  const yrs=[...new Set(PAYS.filter(p=>p.pay>=anchorPay&&p.pay<=through).map(p=>p.year))];
+  document.getElementById("rateCalc").innerHTML=rate>0?(hourly
+    ? `Hourly: ${f2(rate)}/check every pay period. Yearly cap ≈ ${annual} hrs (rate × 26).`
+    : `${f2(rate)} × ${aPeriods} checks in ${aYear} = <b>${annual} hrs/year</b>`+yrs.filter(y=>y!==aYear).map(y=>`<br>${y}: ${annual} ÷ ${periodsIn(y)} checks = <b>${f2(rateFor(y))}</b>/check`).join(""))
+    :"Enter your PTO rate per pay period.";
+  // PSL YTD estimate
+  const paysSoFar=PAYS.filter(p=>p.year===aYear&&p.pay<=anchorPay).length;
+  const pslAccStart=Math.min(80,r2(pslRate*paysSoFar));
+  document.getElementById("pslCalc").innerHTML=`PSL earned: ${hrsWorked} hrs ÷ 30 = <b>${f2(pslRate)}</b>/check (max 80/yr). `+
+
+    ` ${aYear} PSL you can still use: <b>${f2(Math.max(0,Math.min(num("pslBal"),40-num("pslUsed"))))}</b>.`;
+
+  // floating banks
+  const fb=num("fltBal");
+  const banks=fb>0?[{hrs:fb,left:fb,issued:-1e9,expires:1e9,label:"Floating hours you have now",done:false}]:[];
+  const autoF=HOL.filter(h=>h.weekend&&h.n>anchorPay&&h.n<=through);
+  autoF.forEach(h=>{const ex=new Date(n2d(h.n));ex.setUTCFullYear(ex.getUTCFullYear()+1);
+    banks.push({hrs:8,left:8,issued:h.n,expires:Math.round(ex/DAY),label:h.name+" "+yr(h.n)+" (weekend)",done:false,auto:true})});
+
+  // expand requests into daily items
+  const items=[];const alerts=[];
+  reqs.forEach(r=>{
+    if(!r.start||!(+r.hrs>0))return;
+    const s=d2n(r.start),e=s;
+    items.push({n:s,hrs:+r.hrs,bank:r.bank,note:r.note||"Time off",rid:r.id});
+    if(s>=todayN&&s<todayN+14)alerts.push(["warn","Notice",`${esc(r.note||"Time off")} on ${fmt(s)} is less than 2 weeks away. Policy asks for 2 weeks' notice.`]);
+    if(s===e&&closedSet.has(s))alerts.push(["warn","Holiday",`${fmt(s)} is ${holName(s)}. The clinic is closed and holiday pay covers 8 hours, so only enter makeup hours for that day.`]);
+  });
+  items.sort((a,b)=>a.n-b.n);
+
+  // assign items to paychecks
+  const before=items.filter(i=>i.n<=A.end);
+  if(before.length)alerts.push(["warn","Earlier",`${before.length} day(s) of time off fall on or before ${fmtS(A.end)}, the end of your starting pay period. They're assumed to be in your starting balance already.`]);
+  const after=items.filter(i=>{const p=periodFor(i.n);return p&&p.pay>through});
+  if(after.length)alerts.push(["warn","Range",`${after.length} day(s) of time off are paid after the last date shown. Extend "Project through" to include them.`]);
+
+  // walk paychecks
+  let pto=num("ptoBal"),psl=num("pslBal");
+  let curYear=aYear,pslAccY=pslAccStart,ptoAccY=hourly?Math.min(annual,r2(rate*paysSoFar)):0;
+  const pslUsed={};pslUsed[aYear]=num("pslUsed");
+  const rows=[];let totShort=0,totForfeit=0,minPto={v:pto,n:anchorPay},floatExpired=0;
+  rows.push({type:"start",pay:anchorPay,p:A,pto,psl,flt:fb,total:r2(pto+Math.min(psl,Math.max(0,40-num("pslUsed")))+fb)});
+
+  const yearEnd=(y,row)=>{
+    const cap=annual;
+    const fP=Math.max(0,r2(pto-cap)),fS=Math.max(0,r2(psl-40));
+    if(fP>0){pto=cap;row.notes.push(`<span class="flag">Year end: ${f2(fP)} PTO forfeited</span> (carryover max ${cap})`);totForfeit+=fP;
+      alerts.push(["bad","Forfeit",`${f2(fP)} PTO hrs are lost at the end of ${y}, because the carryover max is ${cap}. Plan to use them before ${fmt(lastPayOf(y))}'s pay period ends.`])}
+    if(fS>0){psl=40;row.notes.push(`<span class="w">Year end: ${f2(fS)} PSL over the 40-hr rollover is lost</span>`);totForfeit+=fS;
+      alerts.push(["warn","PSL",`${f2(fS)} PSL hrs over the 40-hour rollover are lost at the end of ${y}.`])}
+    row.notes.push(`${y+1} starts with ${f2(psl)} PSL; you can use up to ${f2(Math.min(psl,40))} of it in ${y+1}.`);
+    row.ye=true;
+  };
+  if(anchorPay===lastPayOf(aYear)){const r0=rows[0];r0.notes=[];yearEnd(aYear,r0);r0.pto=pto;r0.psl=psl}
+
+  PAYS.filter(p=>p.pay>anchorPay&&p.pay<=through).forEach(p=>{
+    const y=p.year;
+    if(y!==curYear){
+      rows.push({type:"year",year:y});
+      curYear=y;pslAccY=0;ptoAccY=0;
+    }
+    const row={type:"pay",pay:p.pay,p,notes:[],ptoUsed:0,pslUsed:0,fltUsed:0,short:0};
+    let acc=rateFor(y);
+    if(hourly){acc=Math.max(0,Math.min(acc,annual-ptoAccY));ptoAccY+=acc}
+    const pAcc=Math.max(0,Math.min(pslRate,80-pslAccY));pslAccY+=pAcc;
+    row.ptoAcc=acc;row.pslAcc=pAcc;
+    pto=r2(pto+acc);psl=r2(psl+pAcc);
+    row.ptoAvail=pto;row.pslAvail=psl;
+    row.holidays=HOL.filter(h=>h.n>=p.start&&h.n<=p.end);
+    row.holidays.forEach(h=>row.notes.push(h.weekend?`${h.name} (${DOWN[dow(h.n)]}): +8 floating hrs`:`${h.name}: closed, 8 hrs holiday pay`));
+
+    // usage
+    const mine=items.filter(i=>i.n>=p.start&&i.n<=p.end);
+    const grouped={};
+    mine.forEach(i=>{
+      const iy=yr(i.n);let short=0,used=0;
+      if(i.bank==="PTO"){used=Math.min(i.hrs,pto);pto=r2(pto-used);row.ptoUsed+=used;short=r2(i.hrs-used);}
+      else if(i.bank==="PSL"){
+        if(pslUsed[iy]===undefined)pslUsed[iy]=0;
+        const capLeft=Math.max(0,40-pslUsed[iy]);
+        const capBinds=capLeft<Math.min(i.hrs,psl);
+        used=Math.min(i.hrs,psl,capLeft);psl=r2(psl-used);pslUsed[iy]+=used;row.pslUsed+=used;short=r2(i.hrs-used);
+        if(short>0)i.why=capBinds?`${iy} PSL limit of 40 reached`:"not enough PSL";
+      } else {
+        let need=i.hrs;
+        banks.filter(b=>!b.done&&b.left>0&&b.issued<=i.n&&b.expires>=i.n).sort((a,b)=>a.expires-b.expires).forEach(b=>{const t=Math.min(need,b.left);b.left=r2(b.left-t);need=r2(need-t)});
+        used=r2(i.hrs-need);row.fltUsed+=used;short=need;
+        if(short>0)i.why="no floating hours available on that date";
+      }
+      if(short>0){
+        row.short+=short;totShort+=short;
+        if(i.bank==="PTO")i.why="not enough PTO";
+        alerts.push(["bad","Short",`${fmt(i.n)} (${esc(i.note)}): ${f2(short)} hrs short from ${i.bank==="FLT"?"floating":i.bank}, ${i.why}. Those hours would be unpaid.`]);
+      }
+      const k=i.note+"|"+i.bank;
+      if(!grouped[k])grouped[k]={note:i.note,bank:i.bank,hrs:0,days:0,first:i.n,last:i.n,short:0,auto:i.auto};
+      const g=grouped[k];g.hrs+=i.hrs;g.days++;g.last=i.n;g.short+=short;
+    });
+    Object.values(grouped).forEach(g=>{
+      const when=g.first===g.last?fmtS(g.first):fmtS(g.first)+"–"+fmtS(g.last);
+      row.notes.push(`${esc(g.note)} · ${when} · ${f2(g.hrs)} ${g.bank==="FLT"?"floating":g.bank}`+(g.short>0?` <span class="flag">(${f2(g.short)} short)</span>`:""));
+    });
+    // expirations
+    banks.forEach(b=>{if(!b.done&&b.expires<p.pay){b.done=true;if(b.left>0){floatExpired+=b.left;row.notes.push(`<span class="w">${f2(b.left)} floating hrs expired ${fmtS(b.expires)}</span>`);
+      alerts.push(["warn","Expiring",`${f2(b.left)} floating holiday hrs (${b.label}) expire unused on ${fmt(b.expires)}.`]);b.left=0}}});
+    if(p.pay===lastPayOf(y))yearEnd(y,row);
+    row.pto=pto;row.psl=psl;
+    row.flt=banks.filter(b=>!b.done&&b.issued<=p.pay).reduce((s,b)=>s+b.left,0);
+    row.pslCapLeft=Math.max(0,40-(pslUsed[y]||0));
+    row.total=r2(pto+Math.min(psl,row.ye?40:row.pslCapLeft)+row.flt);
+    if(pto<minPto.v)minPto={v:pto,n:p.pay};
+    rows.push(row);
+  });
+  // floats still alive past range but expiring later: fine.
+  lastModel={rows,banks,pslUsed,items,A,hourly,annual,rate,rateFor,aYear,pslRate,through,totShort,totForfeit,minPto,floatExpired,alerts,pto,psl};
+  render();
+}
+
+// ---------- render ----------
+function render(){
+  const M=lastModel;
+  const last=M.rows.filter(r=>r.type!=="year").slice(-1)[0];
+  const tiles=[
+    {k:"All time off at last check",v:f2(last.total),d:fmt(last.pay)+" · PTO "+f2(last.pto)},
+    {k:"Lowest PTO",v:f2(M.minPto.v),d:fmt(M.minPto.n)},
+    {k:"Hours short",v:f2(M.totShort),d:M.totShort>0?"would be unpaid":"all time off is covered",bad:M.totShort>0},
+    {k:"Lost at year end",v:f2(M.totForfeit),d:"PTO over carryover + PSL over 40",bad:M.totForfeit>0},
+    {k:"Floating expiring",v:f2(M.floatExpired),d:"unused before expiration",bad:M.floatExpired>0}
+  ];
+  document.getElementById("tiles").innerHTML=tiles.map(t=>`<div class="tile${t.bad?" bad":""}"><div class="k">${t.k}</div><div class="v">${t.v}</div><div class="d">${t.d}</div></div>`).join("");
+  const al=M.alerts.length?M.alerts:[["ok","OK","All planned time off is covered and nothing is lost at year end."]];
+  document.getElementById("alerts").innerHTML=al.map(a=>`<li class="${a[0]}"><b>${a[0]==="bad"?"✖":a[0]==="warn"?"!":"✓"} ${a[1].toUpperCase()}</b>${a[2]}</li>`).join("");
+
+  const dash=x=>x>0.004?f2(x):'<span class="dash">–</span>';
+  let h=`<thead><tr><th class="l" rowspan="2">Paycheck</th><th class="l" rowspan="2">Pay period</th><th class="grp tot">All time off</th>
+    <th class="grp" colspan="3">PTO</th><th class="grp" colspan="3">PSL</th><th class="grp">Float</th><th class="l bl" rowspan="2">What happens</th></tr>
+    <tr><th class="tot">usable</th><th class="bl">+ earned</th><th>− used</th><th>balance</th><th class="bl">+ earned</th><th>− used</th><th>balance</th><th class="bl">balance</th></tr></thead><tbody>`;
+  M.rows.forEach(r=>{
+    if(r.type==="year"){h+=`<tr class="yr"><td colspan="11">${r.year}<span>${periodsIn(r.year)} pay periods · PTO ${f2(M.rateFor(r.year))}/check · PSL use limit resets to 40</span></td></tr>`;return}
+    if(r.type==="start"){h+=`<tr class="${r.ye?"ye":""}"><td class="l">${fmtS(r.pay)}, ${yr(r.pay)}</td><td class="l">${fmtS(r.p.start)}–${fmtS(r.p.end)}</td><td class="num tot">${f2(r.total)}</td>
+      <td class="num bl dash">start</td><td></td><td class="num bal">${f2(r.pto)}</td><td class="num bl"></td><td></td><td class="num bal">${f2(r.psl)}</td><td class="num bl bal">${f2(r.flt)}</td>
+      <td class="notes bl">Starting balances from your paycheck${r.notes?" · "+r.notes.join(" · "):""}</td></tr>`;return}
+    h+=`<tr class="${r.ye?"ye":""}${r.short>0?" short":""}"><td class="l">${fmtS(r.pay)}${r.pay===lastPayOf(r.p.year)?" ◆":""}</td><td class="l">${fmtS(r.p.start)}–${fmtS(r.p.end)}</td><td class="num tot">${f2(r.total)}</td>
+      <td class="num bl">${dash(r.ptoAcc)}</td><td class="num">${dash(r.ptoUsed)}</td><td class="num bal ptob">${f2(r.pto)}</td>
+      <td class="num bl">${dash(r.pslAcc)}</td><td class="num">${dash(r.pslUsed)}</td><td class="num bal pslb">${f2(r.psl)}</td>
+      <td class="num bl bal">${f2(r.flt)}</td><td class="notes bl">${r.notes.join(" · ")}</td></tr>`;
+  });
+  h+=`</tbody>`;
+  document.getElementById("ledger").innerHTML=h;
+  renderCheck();renderPrintHead();
+}
+
+function renderCheck(){
+  const out=document.getElementById("checkOut");const v=document.getElementById("checkDate").value;
+  if(!v){out.innerHTML='<span class="hint">Pick a date to see what you could take that day.</span>';return}
+  const n=d2n(v),M=lastModel,p=periodFor(n);
+  if(!p){out.textContent="That date is outside the payroll calendar.";return}
+  const row=M.rows.find(r=>r.type==="pay"&&r.pay===p.pay);
+  if(!row){out.innerHTML=`<span class="hint">${fmt(n)} is paid on ${fmt(p.pay)}, outside the range shown. Pick a later starting check or a later "Project through" date.</span>`;return}
+  const y=yr(n);
+  const pslUsedBefore=(M.pslUsed[y]||0);
+  const fl=M.banks.filter(b=>b.issued<=n&&b.expires>=n);
+  const flTxt=fl.length?fl.map(b=>b.expires>9e8?b.label:`${b.label} (expires ${fmt(b.expires)})`).join("; "):"none";
+  out.innerHTML=`<div>${DOWN[dow(n)]} ${fmt(n)} is in the pay period ${fmtS(p.start)}–${fmtS(p.end)}, paid ${fmt(p.pay)}.${closedSet.has(n)?` <b>${holName(n)}: clinic closed.</b>`:""}</div>
+   <div style="margin-top:6px">With your planned time off already counted, after that check you'd have:
+   <span class="calc">PTO ${f2(row.pto)}</span><span class="calc">PSL ${f2(Math.min(row.psl,row.pslCapLeft))} usable</span><span class="calc">Floating ${f2(row.flt)}</span><span class="calc"><b>All time off ${f2(row.total)}</b></span></div>
+   <div class="hint" style="margin-top:6px">Before any time off in that period: PTO ${f2(row.ptoAvail)}, PSL ${f2(row.pslAvail)} (the ${y} limit is 40, with ${f2(Math.min(40,pslUsedBefore))} used by the end of that period). Floating hours valid that day: ${flTxt}.</div>`;
+}
+
+function summaryLines(){
+  const M=lastModel;const nm=document.getElementById("name").value||"—";
+  const L=[];
+  L.push(`Time off projection: ${nm}`);
+  L.push(`Start: paycheck ${fmt(M.A.pay)} · PTO ${f2(num("ptoBal"))}, PSL ${f2(num("pslBal"))} (${f2(num("pslUsed"))} used in ${M.aYear}), floating ${f2(num("fltBal"))} · PTO rate ${f2(M.rate)}/check (${M.hourly?"hourly":M.annual+" hrs/yr"})`);
+  L.push("Planned time off:");
+  reqs.filter(r=>r.start&&+r.hrs>0).forEach(r=>L.push(`  • ${fmt(d2n(r.start))}: ${r.hrs} hrs from ${r.bank==="FLT"?"floating":r.bank}${r.note?" ("+r.note+")":""}`));
+  L.push("Notes:");
+  (M.alerts.length?M.alerts:[["ok","OK","All planned time off is covered."]]).forEach(a=>L.push("  • "+a[2].replace(/<[^>]+>/g,"")));
+  const last=M.rows.filter(r=>r.type!=="year").slice(-1)[0];
+  L.push(`Balances after ${fmt(last.pay)}: all time off ${f2(last.total)} = PTO ${f2(last.pto)}, PSL ${f2(last.psl)}, floating ${f2(last.flt)}. Lowest PTO: ${f2(M.minPto.v)} on ${fmt(M.minPto.n)}.`);
+  return L.join("\n");
+}
+function renderPrintHead(){
+  const M=lastModel;
+  const rq=reqs.filter(r=>r.start&&+r.hrs>0).map(r=>`${fmtS(d2n(r.start))} ${r.hrs}h ${r.bank==="FLT"?"Floating":r.bank}${r.note?" ("+esc(r.note)+")":""}`).join(" · ");
+  document.getElementById("printhead").innerHTML=`<h1>Time Off Projection: ${esc(document.getElementById("name").value||"")}</h1>
+  <div class="meta"><div><b>Starting check:</b> ${fmt(M.A.pay)}</div><div><b>PTO / PSL:</b> ${f2(num("ptoBal"))} / ${f2(num("pslBal"))}</div>
+  <div><b>PTO rate:</b> ${f2(M.rate)}/check ${M.hourly?"(hourly)":"= "+M.annual+" hrs/yr"}</div><div><b>PSL used ${M.aYear}:</b> ${f2(num("pslUsed"))} · <b>Floating:</b> ${f2(num("fltBal"))}</div></div>
+  <div class="reqs"><b>Requested:</b> ${rq||"none"}</div><div class="reqs"><b>Printed:</b> ${fmt(todayN)} · ◆ = last paycheck of the year (carryover limits apply)</div>`;
+}
+
+// ---------- wiring ----------
+const inp=document.querySelector(".inputs");inp.addEventListener("input",calc);inp.addEventListener("change",calc);
+document.getElementById("checkDate").addEventListener("input",renderCheck);
+document.getElementById("copyBtn").onclick=()=>{
+  const t=summaryLines();const ok=()=>{const c=document.getElementById("copied");c.hidden=false;setTimeout(()=>c.hidden=true,1800)};
+  try{navigator.clipboard.writeText(t).then(ok,()=>fallback(t))}catch(e){fallback(t)}
+  function fallback(t){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");ok()}catch(e){}ta.remove()}
+};
+let top=false;try{top=window.self===window.top}catch(e){}
+if(top){const pb=document.getElementById("printBtn");pb.hidden=false;pb.onclick=()=>window.print()}
+
+loadSample();calc();
+})();
+</script>
+
+</body>
+</html>
