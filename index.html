@@ -43,6 +43,10 @@ input[type=number]{font-family:var(--mono);font-size:14px}
 .sub{font-size:13px;color:var(--muted);margin:10px 0 0}
 .req{display:grid;grid-template-columns:150px 80px 120px minmax(0,1fr) auto;gap:8px;align-items:end}
 @media (max-width:620px){.req{grid-template-columns:1fr 80px 1fr auto}.req .note{grid-column:1/-1;order:5}}
+.fm{display:grid;grid-template-columns:150px 150px minmax(0,1fr) auto;gap:8px;align-items:end}
+@media (max-width:620px){.fm{grid-template-columns:1fr 1fr auto}.fm .note{grid-column:1/-1;order:5}}
+.chk{flex-direction:row;align-items:center;gap:8px;font-weight:600;color:var(--fg);margin-top:10px}
+.chk input{width:auto;height:auto}
 .rows{display:flex;flex-direction:column;gap:8px}
 .add{margin-top:10px}
 /* results */
@@ -129,6 +133,14 @@ td.short{font-weight:700}
   </section>
 
   <section class="card noprint">
+    <h2>FMLA leave</h2>
+    <div class="rows" id="fmRows"></div>
+    <button type="button" class="add" id="addFm">+ Add FMLA leave</button>
+    <label class="chk"><input type="checkbox" id="fmPsl"> PSL also stops during FMLA</label>
+    <p class="sub">No PTO is earned on FMLA days. A paycheck that is partly on leave earns PTO only for the workdays (Mon–Fri) you worked. Use PTO or PSL during leave by adding those days above.</p>
+  </section>
+
+  <section class="card noprint">
     <h2>What will I have on</h2>
     <div class="fields" style="max-width:260px"><label>Date<input id="target" type="date"></label></div>
     <p class="sub" id="targetNote"></p>
@@ -204,15 +216,31 @@ function addReq(r){
 }
 $("addReq").onclick=()=>{addReq({});calc()};
 
+let fms=[];
+function addFm(r){
+  r={start:"",end:"",note:"",...r};fms.push(r);
+  const div=document.createElement("div");div.className="fm";
+  div.innerHTML=`<label>First day of leave<input type="date" value="${r.start}"></label>
+  <label>Last day of leave<input type="date" value="${r.end}"></label>
+  <label class="note">Note<input type="text" value="${esc(r.note)}" autocomplete="off"></label>
+  <button type="button" class="x" aria-label="Remove leave">×</button>`;
+  const [si,ei,ni]=div.querySelectorAll("input");
+  si.oninput=()=>r.start=si.value;ei.oninput=()=>r.end=ei.value;ni.oninput=()=>r.note=ni.value;
+  div.querySelector("button").onclick=()=>{fms=fms.filter(x=>x!==r);div.remove();calc()};
+  $("fmRows").appendChild(div);
+}
+$("addFm").onclick=()=>{addFm({});calc()};
+
 function loadSample(){
   $("name").value="Sample therapist (example numbers)";
   $("anchor").value=String(d2n("2026-10-09"));$("target").value="2027-07-20";
   $("ptoBal").value="60.00";$("rate").value="5.19";$("pslBal").value="40.00";$("pslUsed").value="0";$("fltBal").value="0";$("pslRateIn").value="2.57";
   addReq({});
+  addFm({});
 }
 $("clearBtn").onclick=()=>{
   ["name","rate","ptoBal","pslBal","pslRateIn","pslUsed","fltBal"].forEach(id=>$(id).value="");
-  $("pslRateIn").value="";reqs=[];$("reqRows").innerHTML="";addReq({});calc();
+  $("pslRateIn").value="";reqs=[];$("reqRows").innerHTML="";addReq({});fms=[];$("fmRows").innerHTML="";$("fmPsl").checked=false;calc();
 };
 
 let M=null;
@@ -235,6 +263,11 @@ function calc(){
 
   const items=reqs.filter(r=>r.date&&+r.hrs>0).map(r=>({n:d2n(r.date),hrs:+r.hrs,bank:r.bank,note:r.note})).sort((a,b)=>a.n-b.n);
 
+  const leaves=fms.filter(f=>f.start&&f.end).map(f=>{let a=d2n(f.start),b=d2n(f.end);if(b<a)[a,b]=[b,a];return{a,b,note:f.note}}).sort((x,y)=>x.a-y.a);
+  const onLeave=n=>leaves.some(l=>n>=l.a&&n<=l.b);
+  const workFrac=p=>{let w=0,off=0;for(let n=p.start;n<=p.end;n++){const d=dow(n);if(d===0||d===6)continue;w++;if(onLeave(n))off++}return{w,off,frac:w?(w-off)/w:1}};
+  const fmPsl=$("fmPsl").checked;
+  let ptoLost=0,pslLost=0;
   let pto=num("ptoBal"),psl=num("pslBal");
   const paysSoFar=PAYS.filter(p=>p.year===aYear&&p.pay<=anchorPay).length;
   let pslAccY=Math.min(80,pslIn*paysSoFar),ptoAccY=hourly?Math.min(annual,rate*paysSoFar):0,curYear=aYear;
@@ -254,8 +287,11 @@ function calc(){
     const y=p.year;
     if(y!==curYear){rows.push({year:y});curYear=y;pslAccY=0;ptoAccY=0}
     const row={pay:p.pay,p,notes:[],used:[]};
-    let acc=rateFor(y);if(hourly){acc=Math.max(0,Math.min(acc,annual-ptoAccY));ptoAccY+=acc}
-    const pa=Math.max(0,Math.min(pslRateFor(y),80-pslAccY));pslAccY+=pa;
+    const wf=workFrac(p);
+    const fullAcc=rateFor(y);let acc=r2(fullAcc*wf.frac);if(hourly){acc=Math.max(0,Math.min(acc,annual-ptoAccY));ptoAccY+=acc}
+    const pslFull=pslRateFor(y);const pa=Math.max(0,Math.min(fmPsl?r2(pslFull*wf.frac):pslFull,80-pslAccY));pslAccY+=pa;
+    if(wf.off>0){ptoLost+=r2(fullAcc-acc);if(fmPsl)pslLost+=r2(pslFull-r2(pslFull*wf.frac));
+      row.notes.push(`FMLA ${wf.off} of ${wf.w} workdays: ${f2(acc)} PTO earned${fmPsl?`, ${f2(pa)} PSL`:""}`)}
     pto=r2(pto+acc);psl=r2(psl+pa);row.ptoAcc=acc;
     HOL.filter(h=>h.weekend&&h.n>=p.start&&h.n<=p.end).forEach(h=>row.notes.push(`${h.name} (${DOWN[dow(h.n)]}): +8 floating hrs`));
     items.filter(i=>i.n>=p.start&&i.n<=p.end).forEach(i=>{
@@ -273,7 +309,8 @@ function calc(){
   });
   const end=rows.filter(r=>r.pay).slice(-1)[0]||{pay:anchorPay,pto:start.pto,psl:start.psl,pslUse:start.pslUse,flt:start.flt};
   const later=items.filter(i=>{const p=periodFor(i.n);return p&&p.pay>targetPay&&p.pay>anchorPay});
-  M={ready,start,end,rows,between,later,targetPay,targetDate,anchorPay,annual,rate,hourly,aYear};
+  const leaveIn=leaves.filter(l=>l.b>=anchorPay-13&&l.a<=targetPay);
+  M={ready,start,end,rows,between,later,targetPay,targetDate,anchorPay,annual,rate,hourly,aYear,leaveIn,ptoLost:r2(ptoLost),pslLost:r2(pslLost),fmPsl};
   render();
 }
 
@@ -303,6 +340,12 @@ function render(){
     const parts=["PTO","PSL","FLT"].filter(k=>tot[k]>0).map(k=>`${bankName(k)} ${f2(tot[k])}`).join(" · ");
     h+=`</tbody><tfoot><tr><td class="l" colspan="3">Total · ${parts}</td><td class="n">${f2(tot.PTO+tot.PSL+tot.FLT)}</td></tr></tfoot></table></div>`;
   }
+  if(M.leaveIn.length){
+    h+=`<h2 style="margin-top:14px">FMLA leave</h2><div class="tablewrap"><table><thead><tr><th class="l">Dates</th><th class="l">Note</th><th>Workdays</th></tr></thead><tbody>`;
+    M.leaveIn.forEach(l=>{let w=0;for(let n=l.a;n<=l.b;n++){const d=dow(n);if(d&&d!==6)w++}
+      h+=`<tr><td class="l">${fmt(l.a)} – ${fmt(l.b)}</td><td class="l wr">${esc(l.note)}</td><td class="n">${w}</td></tr>`});
+    h+=`</tbody><tfoot><tr><td class="l" colspan="2">Not earned because of leave · PTO ${f2(M.ptoLost)}${M.fmPsl?` · PSL ${f2(M.pslLost)}`:""}</td><td></td></tr></tfoot></table></div>`;
+  }
   if(M.later.length)h+=`<p class="sub">${M.later.length} planned day(s) come after ${fmt(M.targetPay)} and aren't counted here.</p>`;
   $("betweenCard").innerHTML=h;
 
@@ -327,6 +370,8 @@ function summary(){
   const L=[`Time off: ${$("name").value||""}`.trim(),b("I have",M.start),"Planned time off:"];
   M.between.forEach(i=>L.push(`  • ${fmt(i.n)}: ${f2(i.hrs)} hrs ${bankName(i.bank)}${i.note?" ("+i.note+")":""}`));
   if(!M.between.length)L.push("  • none");
+  M.leaveIn.forEach(l=>L.push(`FMLA leave ${fmt(l.a)} – ${fmt(l.b)}${l.note?" ("+l.note+")":""}`));
+  if(M.leaveIn.length)L.push(`PTO not earned during leave: ${f2(M.ptoLost)} hrs${M.fmPsl?`; PSL not earned: ${f2(M.pslLost)} hrs`:""}`);
   L.push(b("I'll have",M.end));
   return L.join("\n");
 }
