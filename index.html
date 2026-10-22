@@ -114,8 +114,8 @@ td.short{font-weight:700}
       <label>PTO balance<input id="ptoBal" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>PTO earned per paycheck<input id="rate" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>PSL balance<input id="pslBal" type="number" step="0.01" min="0" inputmode="decimal"></label>
-      <label>PSL earned per paycheck<input id="pslRateIn" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>PSL used so far this year<input id="pslUsed" type="number" step="0.01" min="0" inputmode="decimal"></label>
+      <label>PSL earned per paycheck<input id="pslRateIn" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>Floating holiday hours<input id="fltBal" type="number" step="0.5" min="0" inputmode="decimal"></label>
       <label>Pay type<select id="etype"><option value="salaried">Salaried</option><option value="hourly">Hourly</option></select></label>
     </div>
@@ -206,7 +206,7 @@ $("addReq").onclick=()=>{addReq({});calc()};
 function loadSample(){
   $("name").value="Sample therapist (example numbers)";
   $("anchor").value=String(d2n("2026-10-09"));$("target").value=String(d2n("2027-07-16"));
-  $("ptoBal").value="60.00";$("rate").value="5.19";$("pslBal").value="40.00";$("pslUsed").value="0";$("fltBal").value="8";$("pslRateIn").value="2.57";
+  $("ptoBal").value="60.00";$("rate").value="5.19";$("pslBal").value="40.00";$("pslUsed").value="0";$("fltBal").value="0";$("pslRateIn").value="2.57";
   addReq({});
 }
 $("clearBtn").onclick=()=>{
