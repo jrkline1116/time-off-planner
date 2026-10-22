@@ -130,7 +130,8 @@ td.short{font-weight:700}
 
   <section class="card noprint">
     <h2>What will I have on</h2>
-    <div class="fields"><label>Paycheck<select id="target"></select></label></div>
+    <div class="fields" style="max-width:260px"><label>Date<input id="target" type="date"></label></div>
+    <p class="sub" id="targetNote"></p>
   </section>
 
   <div id="results">
@@ -184,7 +185,7 @@ const periodFor=n=>PAYS.find(p=>n>=p.start&&n<=p.end);
 
 const opts=PAYS.filter(p=>p.year>=2026&&p.year<=2028);
 opts.forEach(p=>{
-  [$("anchor"),$("target")].forEach(sel=>{const o=document.createElement("option");o.value=p.pay;o.textContent=fmt(p.pay);sel.appendChild(o)});
+  [$("anchor")].forEach(sel=>{const o=document.createElement("option");o.value=p.pay;o.textContent=fmt(p.pay);sel.appendChild(o)});
 });
 
 let reqs=[],uid=0;
@@ -205,7 +206,7 @@ $("addReq").onclick=()=>{addReq({});calc()};
 
 function loadSample(){
   $("name").value="Sample therapist (example numbers)";
-  $("anchor").value=String(d2n("2026-10-09"));$("target").value=String(d2n("2027-07-16"));
+  $("anchor").value=String(d2n("2026-10-09"));$("target").value="2027-07-20";
   $("ptoBal").value="60.00";$("rate").value="5.19";$("pslBal").value="40.00";$("pslUsed").value="0";$("fltBal").value="0";$("pslRateIn").value="2.57";
   addReq({});
 }
@@ -217,7 +218,10 @@ $("clearBtn").onclick=()=>{
 let M=null;
 function calc(){
   const anchorPay=+$("anchor").value, A=PAYS.find(p=>p.pay===anchorPay), aYear=A.year;
-  let targetPay=+$("target").value;
+  const tv=$("target").value, targetDate=tv?d2n(tv):0;
+  const tp=targetDate?PAYS.filter(p=>p.pay<=targetDate).slice(-1)[0]:null;
+  let targetPay=tp?tp.pay:0;
+  $("targetNote").textContent=tp&&tp.pay>=anchorPay?`Your balance on ${fmt(targetDate)} is what you have after your last paycheck on or before that date: ${fmt(tp.pay)}.`:"";
   const hourly=$("etype").value==="hourly", rate=num("rate");
   const annual=hourly?Math.round(rate*26):Math.round(rate*periodsIn(aYear));
   const rateFor=y=>hourly||y===aYear?rate:r2(annual/periodsIn(y));
@@ -269,7 +273,7 @@ function calc(){
   });
   const end=rows.filter(r=>r.pay).slice(-1)[0]||{pay:anchorPay,pto:start.pto,psl:start.psl,pslUse:start.pslUse,flt:start.flt};
   const later=items.filter(i=>{const p=periodFor(i.n);return p&&p.pay>targetPay&&p.pay>anchorPay});
-  M={ready,start,end,rows,between,later,targetPay,anchorPay,annual,rate,hourly,aYear};
+  M={ready,start,end,rows,between,later,targetPay,targetDate,anchorPay,annual,rate,hourly,aYear};
   render();
 }
 
@@ -285,8 +289,8 @@ function render(){
   const show=M.ready;
   ["results","betweenCard","ledgerCard"].forEach(id=>$(id).hidden=!show&&id!=="results");
   if(!show){$("compare").innerHTML=`<div class="card empty" style="grid-column:1/-1">Enter your PTO balance and PTO earned per paycheck to see what you'll have.</div>`;$("printhead").innerHTML="";return}
-  if(M.targetPay<=M.anchorPay){$("compare").innerHTML=`<div class="card empty" style="grid-column:1/-1">Pick a "What will I have on" paycheck after ${fmt(M.anchorPay)}.</div>`;$("betweenCard").hidden=true;$("ledgerCard").hidden=true;return}
-  $("compare").innerHTML=balBox("now","I have",M.start)+`<div class="arrow" aria-hidden="true">→</div>`+balBox("later","I'll have",M.end);
+  if(!M.targetDate||M.targetDate<M.anchorPay){$("compare").innerHTML=`<div class="card empty" style="grid-column:1/-1">Pick a "What will I have on" date on or after your ${fmt(M.anchorPay)} paycheck.</div>`;$("betweenCard").hidden=true;$("ledgerCard").hidden=true;return}
+  $("compare").innerHTML=balBox("now","I have",M.start)+`<div class="arrow" aria-hidden="true">→</div>`+balBox("later","I'll have on "+fmt(M.targetDate),M.end);
 
   // time off between
   const tot={PTO:0,PSL:0,FLT:0};let shortT=0;
