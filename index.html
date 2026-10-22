@@ -114,10 +114,10 @@ td.short{font-weight:700}
       <label>PTO balance<input id="ptoBal" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>PTO earned per paycheck<input id="rate" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>PSL balance<input id="pslBal" type="number" step="0.01" min="0" inputmode="decimal"></label>
+      <label>PSL earned per paycheck<input id="pslRateIn" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>PSL used so far this year<input id="pslUsed" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>Floating holiday hours<input id="fltBal" type="number" step="0.5" min="0" inputmode="decimal"></label>
       <label>Pay type<select id="etype"><option value="salaried">Salaried</option><option value="hourly">Hourly</option></select></label>
-      <label>Hours worked per pay period<input id="hrsWorked" type="number" step="1" min="0" inputmode="decimal"></label>
     </div>
     <p class="sub">Use the balances on that paycheck stub. Example numbers are filled in. <button type="button" class="link" id="clearBtn">Clear everything</button></p>
   </section>
@@ -206,12 +206,12 @@ $("addReq").onclick=()=>{addReq({});calc()};
 function loadSample(){
   $("name").value="Sample therapist (example numbers)";
   $("anchor").value=String(d2n("2026-10-09"));$("target").value=String(d2n("2027-07-16"));
-  $("ptoBal").value="60.00";$("rate").value="5.19";$("pslBal").value="40.00";$("pslUsed").value="0";$("fltBal").value="8";$("hrsWorked").value="80";
+  $("ptoBal").value="60.00";$("rate").value="5.19";$("pslBal").value="40.00";$("pslUsed").value="0";$("fltBal").value="8";$("pslRateIn").value="2.57";
   addReq({});
 }
 $("clearBtn").onclick=()=>{
-  ["name","rate","ptoBal","pslBal","pslUsed","fltBal"].forEach(id=>$(id).value="");
-  $("hrsWorked").value="80";reqs=[];$("reqRows").innerHTML="";addReq({});calc();
+  ["name","rate","ptoBal","pslBal","pslRateIn","pslUsed","fltBal"].forEach(id=>$(id).value="");
+  $("pslRateIn").value="";reqs=[];$("reqRows").innerHTML="";addReq({});calc();
 };
 
 let M=null;
@@ -221,7 +221,8 @@ function calc(){
   const hourly=$("etype").value==="hourly", rate=num("rate");
   const annual=hourly?Math.round(rate*26):Math.round(rate*periodsIn(aYear));
   const rateFor=y=>hourly||y===aYear?rate:r2(annual/periodsIn(y));
-  const pslRate=num("hrsWorked")/30;
+  const pslIn=num("pslRateIn"), pslAnnual=pslIn*periodsIn(aYear);
+  const pslRateFor=y=>hourly||y===aYear?pslIn:r2(pslAnnual/periodsIn(y));
   const ready=$("rate").value!==""&&$("ptoBal").value!=="";
 
   const fb=num("fltBal");
@@ -232,7 +233,7 @@ function calc(){
 
   let pto=num("ptoBal"),psl=num("pslBal");
   const paysSoFar=PAYS.filter(p=>p.year===aYear&&p.pay<=anchorPay).length;
-  let pslAccY=Math.min(80,pslRate*paysSoFar),ptoAccY=hourly?Math.min(annual,rate*paysSoFar):0,curYear=aYear;
+  let pslAccY=Math.min(80,pslIn*paysSoFar),ptoAccY=hourly?Math.min(annual,rate*paysSoFar):0,curYear=aYear;
   const pslUsed={[aYear]:num("pslUsed")};
   const fltNow=pay=>banks.filter(b=>!b.done&&b.left>0&&b.issued<=pay).reduce((s,b)=>s+b.left,0);
   const usable=(y)=>Math.max(0,Math.min(psl,40-(pslUsed[y]||0)));
@@ -250,7 +251,7 @@ function calc(){
     if(y!==curYear){rows.push({year:y});curYear=y;pslAccY=0;ptoAccY=0}
     const row={pay:p.pay,p,notes:[],used:[]};
     let acc=rateFor(y);if(hourly){acc=Math.max(0,Math.min(acc,annual-ptoAccY));ptoAccY+=acc}
-    const pa=Math.max(0,Math.min(pslRate,80-pslAccY));pslAccY+=pa;
+    const pa=Math.max(0,Math.min(pslRateFor(y),80-pslAccY));pslAccY+=pa;
     pto=r2(pto+acc);psl=r2(psl+pa);row.ptoAcc=acc;
     HOL.filter(h=>h.weekend&&h.n>=p.start&&h.n<=p.end).forEach(h=>row.notes.push(`${h.name} (${DOWN[dow(h.n)]}): +8 floating hrs`));
     items.filter(i=>i.n>=p.start&&i.n<=p.end).forEach(i=>{
