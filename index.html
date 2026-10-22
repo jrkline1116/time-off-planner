@@ -38,7 +38,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
 label{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:600;color:var(--muted)}
-input,select{font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:7px 8px;width:100%;min-width:0}
+input,select{height:38px;font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:7px 8px;width:100%;min-width:0}
 input[type=number]{font-family:var(--mono);font-size:14px}
 .sub{font-size:13px;color:var(--muted);margin:10px 0 0}
 .req{display:grid;grid-template-columns:150px 80px 120px minmax(0,1fr) auto;gap:8px;align-items:end}
@@ -207,9 +207,7 @@ function loadSample(){
   $("name").value="Sample therapist (example numbers)";
   $("anchor").value=String(d2n("2026-10-09"));$("target").value=String(d2n("2027-07-16"));
   $("ptoBal").value="60.00";$("rate").value="5.19";$("pslBal").value="40.00";$("pslUsed").value="0";$("fltBal").value="8";$("hrsWorked").value="80";
-  [["2026-11-25",8,"PTO","Day before Thanksgiving"],["2026-12-28",8,"PTO","Holiday break"],["2026-12-29",8,"PTO","Holiday break"],
-   ["2027-02-10",4,"PSL","Appointment"],["2027-06-28",8,"FLT","Summer trip"],["2027-06-29",8,"PTO","Summer trip"]]
-   .forEach(([date,hrs,bank,note])=>addReq({date,hrs,bank,note}));
+  addReq({});
 }
 $("clearBtn").onclick=()=>{
   ["name","rate","ptoBal","pslBal","pslUsed","fltBal"].forEach(id=>$(id).value="");
