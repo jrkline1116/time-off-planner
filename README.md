@@ -9,3 +9,5 @@ A fill-in calculator that projects PTO, PSL and floating holiday hours paycheck 
 - One-page black-and-white printout
 
 Nothing entered is saved. Single static `index.html`, no build step.
+
+Last updated: Oct 22, 2026
